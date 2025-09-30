@@ -314,12 +314,16 @@
   }
 
   // Camera and AI functions (adapted from hitta)
-  function stopCamera() {
+  function stopLiveDetect() {
     if (liveDetectInterval) {
       clearInterval(liveDetectInterval);
       liveDetectInterval = null;
     }
     liveDetectInProgress = false;
+  }
+
+  function stopCamera() {
+    stopLiveDetect();
     if (mediaStream) {
       mediaStream.getTracks().forEach(t => t.stop());
       mediaStream = null;
