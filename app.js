@@ -160,29 +160,89 @@
     screens[name].classList.add('active');
   }
 
-  // URL state management (same as hitta)
+  // URL state management with compact encoding (inspired by hitta but more efficient)
   function encodeStateToURL(next) {
     const url = new URL(location.href);
     const params = url.searchParams;
-    params.set('pa', next.playerAName || '');
-    params.set('pb', next.playerBName || '');
-    params.set('sa', String(next.playerAScore || 0));
-    params.set('sb', String(next.playerBScore || 0));
-    params.set('cp', next.currentPlayer || 'A');
-    params.set('objs', JSON.stringify(next.targetObjects || []));
-    params.set('lat', String(next.targetLocation?.latitude || ''));
-    params.set('lng', String(next.targetLocation?.longitude || ''));
-    params.set('act', next.isActive ? '1' : '0');
-    params.set('w', next.winner || '');
-    params.set('wp', String(next.winPoints || WIN_POINTS));
-    params.set('cx', next.canceledBy || '');
-    params.set('gid', next.gameId || '');
+    
+    // Create compact game state object
+    const gameState = {
+      pa: next.playerAName || '',
+      pb: next.playerBName || '',
+      sa: next.playerAScore || 0,
+      sb: next.playerBScore || 0,
+      cp: next.currentPlayer || 'A',
+      objs: next.targetObjects || [],
+      lat: next.targetLocation?.latitude || null,
+      lng: next.targetLocation?.longitude || null,
+      act: next.isActive ? 1 : 0,
+      w: next.winner || '',
+      wp: next.winPoints || WIN_POINTS,
+      cx: next.canceledBy || '',
+      gid: next.gameId || '',
+      hst: next.huntStartTime || null
+    };
+    
+    // Remove null/empty values to minimize size
+    const cleanState = Object.fromEntries(
+      Object.entries(gameState).filter(([_, value]) => 
+        value !== null && value !== '' && value !== 0
+      )
+    );
+    
+    // Encode as compact JSON and base64
+    const jsonString = JSON.stringify(cleanState);
+    const encoded = btoa(jsonString);
+    
+    // Use single 'g' parameter for game state
+    params.set('g', encoded);
+    
+    // Clean up old individual parameters
+    ['pa', 'pb', 'sa', 'sb', 'cp', 'objs', 'lat', 'lng', 'act', 'w', 'wp', 'cx', 'gid'].forEach(key => {
+      params.delete(key);
+    });
+    
     history.replaceState({}, '', url);
   }
 
   function decodeStateFromURL() {
     const url = new URL(location.href);
     const p = url.searchParams;
+    
+    // Try new compact format first
+    const encoded = p.get('g');
+    if (encoded) {
+      try {
+        const jsonString = atob(encoded);
+        const gameState = JSON.parse(jsonString);
+        
+        // Map compact keys to full property names
+        const parsed = {
+          playerAName: gameState.pa || '',
+          playerBName: gameState.pb || '',
+          playerAScore: gameState.sa || 0,
+          playerBScore: gameState.sb || 0,
+          currentPlayer: gameState.cp || 'A',
+          targetObjects: gameState.objs || [],
+          targetLocation: (gameState.lat && gameState.lng) ? {
+            latitude: gameState.lat,
+            longitude: gameState.lng
+          } : null,
+          isActive: gameState.act === 1,
+          winner: gameState.w || '',
+          winPoints: gameState.wp || WIN_POINTS,
+          canceledBy: gameState.cx || '',
+          gameId: gameState.gid || '',
+          huntStartTime: gameState.hst || null
+        };
+        
+        return { ...DEFAULT_GAME, ...parsed };
+      } catch (error) {
+        console.warn('Failed to decode compact game state, falling back to individual params:', error);
+      }
+    }
+    
+    // Fallback to individual parameters (for backward compatibility)
     const parsed = {
       playerAName: p.get('pa') || '',
       playerBName: p.get('pb') || '',
