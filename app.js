@@ -848,7 +848,13 @@
         game.huntStartTime = Date.now();
         game.isActive = true;
         game.winner = '';
+        
+        // Encode game state to URL
         encodeStateToURL(game);
+        
+        // Get the updated URL with encoded game state
+        const currentUrl = new URL(location.href);
+        const shareUrl = currentUrl.toString();
 
         // Create share message
         const objectNames = game.targetObjects.map(obj => obj.label).join(', ');
@@ -857,16 +863,33 @@
         
         const text = `${game.playerAName} utmanar ${game.playerBName} att hitta platsen med objekten: ${svText}. Ställning ${game.playerAScore}-${game.playerBScore}.`;
         
-        // Share link
-        const url = location.href;
-        const full = `${text} ${url}`.trim();
+        // Share the link with encoded game state
+        console.log('Sharing URL:', shareUrl); // Debug log
         if (navigator.share) {
-          navigator.share({ title: 'Geolocation Game Challenge', text, url }).catch(() => {});
+          navigator.share({ 
+            title: 'Geolocation Game Challenge', 
+            text: text, 
+            url: shareUrl 
+          }).catch(() => {
+            // Fallback to clipboard if share fails
+            navigator.clipboard?.writeText(`${text}\n\n${shareUrl}`).then(() => {
+              alert('Challenge copied to clipboard!');
+            }).catch(() => {
+              alert('Please copy this link manually:\n' + shareUrl);
+            });
+          });
         } else {
-          const sms = `sms:?&body=${encodeURIComponent(full)}`;
-          const opened = window.open(sms, '_blank');
-          if (!opened && navigator.clipboard?.writeText) {
-            try { await navigator.clipboard.writeText(full); alert('Link copied. Paste in any app.'); } catch {}
+          // Fallback for browsers without native sharing
+          const fullText = `${text}\n\n${shareUrl}`;
+          if (navigator.clipboard?.writeText) {
+            try {
+              await navigator.clipboard.writeText(fullText);
+              alert('Challenge copied to clipboard!');
+            } catch (error) {
+              alert('Please copy this link manually:\n' + shareUrl);
+            }
+          } else {
+            alert('Please copy this link manually:\n' + shareUrl);
           }
         }
         
