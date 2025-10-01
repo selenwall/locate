@@ -654,7 +654,9 @@
     startBtn.onclick = async () => {
       try {
         // Get location permission first
-        await getCurrentPosition();
+        console.log('Requesting location permission...');
+        const location = await getCurrentPosition();
+        console.log('Location obtained:', location);
         
         const gid = Math.random().toString(36).slice(2, 10);
         try { localStorage.setItem('geolocation_owner_gid', gid); } catch {}
@@ -676,7 +678,18 @@
         encodeStateToURL(game);
         renderCapture();
       } catch (error) {
-        alert('Location access required: ' + error.message);
+        console.error('Location permission error:', error);
+        let errorMessage = 'Platsbehörighet krävs: ';
+        if (error.name === 'NotAllowedError') {
+          errorMessage += 'Platsbehörighet nekades. Klicka på plats-ikonen i adressfältet och tillåt platsåtkomst.';
+        } else if (error.name === 'NotFoundError') {
+          errorMessage += 'Platsinformation inte tillgänglig. Kontrollera att GPS är aktiverat.';
+        } else if (error.name === 'TimeoutError') {
+          errorMessage += 'Platsbegäran tog för lång tid. Försök igen.';
+        } else {
+          errorMessage += error.message;
+        }
+        alert(errorMessage);
       }
     };
 
@@ -685,7 +698,9 @@
     joinBtn.textContent = hasActive ? 'Fortsätt' : 'Gå med i spel via länk';
     joinBtn.onclick = async () => {
       try {
-        await getCurrentPosition();
+        console.log('Requesting location permission for join...');
+        const location = await getCurrentPosition();
+        console.log('Location obtained for join:', location);
         
         if (!hasActive) {
           game.playerBName = nameA.value.trim() || game.playerBName || 'Spelare B';
@@ -695,7 +710,18 @@
         }
         if (game.targetObjects.length > 0) renderHunt(); else renderCapture();
       } catch (error) {
-        alert('Location access required: ' + error.message);
+        console.error('Location permission error for join:', error);
+        let errorMessage = 'Platsbehörighet krävs: ';
+        if (error.name === 'NotAllowedError') {
+          errorMessage += 'Platsbehörighet nekades. Klicka på plats-ikonen i adressfältet och tillåt platsåtkomst.';
+        } else if (error.name === 'NotFoundError') {
+          errorMessage += 'Platsinformation inte tillgänglig. Kontrollera att GPS är aktiverat.';
+        } else if (error.name === 'TimeoutError') {
+          errorMessage += 'Platsbegäran tog för lång tid. Försök igen.';
+        } else {
+          errorMessage += error.message;
+        }
+        alert(errorMessage);
       }
     };
 
@@ -919,8 +945,58 @@
         
         renderWait();
       } catch (e) {
-        console.error(e);
-        alert('Could not analyze image or get location.');
+        console.error('Photo capture error:', e);
+        
+        // Provide specific error messages
+        let errorMessage = 'Ett fel uppstod: ';
+        if (e.name === 'NotAllowedError') {
+          errorMessage += 'Platsbehörighet nekades. Tillåt platsåtkomst och försök igen.';
+        } else if (e.name === 'NotFoundError') {
+          errorMessage += 'Platsinformation inte tillgänglig. Kontrollera GPS-inställningar.';
+        } else if (e.name === 'TimeoutError') {
+          errorMessage += 'Platsbegäran tog för lång tid. Försök igen.';
+        } else if (e.message && e.message.includes('location')) {
+          errorMessage += 'Platsfel: ' + e.message;
+        } else if (e.message && e.message.includes('camera')) {
+          errorMessage += 'Kamerafel: ' + e.message;
+        } else if (e.message && e.message.includes('model')) {
+          errorMessage += 'AI-modellfel: ' + e.message;
+        } else {
+          errorMessage += e.message || 'Okänt fel. Kontrollera kameran och platsbehörigheter.';
+        }
+        
+        alert(errorMessage);
+        
+        // Reset camera for retry
+        try {
+          video.style.display = 'block';
+          canvas.style.display = 'none';
+          startCamera(video).then(loadModel).then(() => {
+            stopLiveDetect();
+            liveDetectInterval = setInterval(async () => {
+              if (liveDetectInProgress) return;
+              if (!yoloModel) return;
+              if (video.readyState < 2) return;
+              try {
+                liveDetectInProgress = true;
+                const preds = await detectObjects(yoloModel, video);
+                drawLiveBoxes(preds);
+              } catch (e) {
+                // ignore transient errors
+              } finally {
+                liveDetectInProgress = false;
+              }
+            }, 600);
+          }).catch(err => {
+            console.error('Camera restart error:', err);
+            alert('Kunde inte starta kamera igen. Ladda om sidan.');
+            setScreen('home');
+          });
+        } catch (restartError) {
+          console.error('Restart error:', restartError);
+          alert('Kunde inte starta om. Ladda om sidan.');
+          setScreen('home');
+        }
       }
     };
   }
