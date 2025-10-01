@@ -834,7 +834,31 @@
         stopCamera();
         
         if (!preds.length) {
-          alert('No objects over 60% found. Try again.');
+          alert('Inga objekt över 60% hittades. Försök igen.');
+          // Reset to capture screen to allow immediate retry
+          video.style.display = 'block';
+          canvas.style.display = 'none';
+          startCamera(video).then(loadModel).then(() => {
+            stopLiveDetect();
+            liveDetectInterval = setInterval(async () => {
+              if (liveDetectInProgress) return;
+              if (!yoloModel) return;
+              if (video.readyState < 2) return;
+              try {
+                liveDetectInProgress = true;
+                const preds = await detectObjects(yoloModel, video);
+                drawLiveBoxes(preds);
+              } catch (e) {
+                // ignore transient errors
+              } finally {
+                liveDetectInProgress = false;
+              }
+            }, 600);
+          }).catch(err => {
+            console.error('Camera restart error:', err);
+            alert('Kunde inte starta kamera igen. Ladda om sidan.');
+            setScreen('home');
+          });
           return;
         }
 
@@ -1133,10 +1157,10 @@
     msg.textContent = `${who} avbröt spelet`;
     const info = document.createElement('div');
     info.className = 'notice';
-    info.textContent = 'Spelet är avslutat. Starta ett nytt spel från startsidan.';
+    info.textContent = 'Spelet är avslutat. Starta ett nytt spel.';
     const home = document.createElement('button');
     home.className = 'primary';
-    home.textContent = 'Till startsidan';
+    home.textContent = 'Starta nytt spel';
     home.onclick = () => {
       const pa = game.playerAName || 'Spelare A';
       const pb = game.playerBName || 'Spelare B';
