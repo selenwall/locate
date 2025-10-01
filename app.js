@@ -192,7 +192,19 @@
     
     // Encode as compact JSON and base64
     const jsonString = JSON.stringify(cleanState);
-    const encoded = btoa(jsonString);
+    let encoded;
+    try {
+      encoded = btoa(jsonString);
+      // Validate the encoded string
+      if (!encoded || encoded.length === 0) {
+        throw new Error('Base64 encoding resulted in empty string');
+      }
+    } catch (encodeError) {
+      console.error('Base64 encoding error:', encodeError);
+      console.error('JSON string:', jsonString);
+      console.error('Clean state:', cleanState);
+      throw new Error('Failed to encode game state: ' + encodeError.message);
+    }
     
     // Use single 'g' parameter for game state
     params.set('g', encoded);
@@ -202,7 +214,20 @@
       params.delete(key);
     });
     
-    history.replaceState({}, '', url);
+    // Validate URL before updating
+    try {
+      const testUrl = url.toString();
+      if (!testUrl || testUrl.length === 0) {
+        throw new Error('Generated URL is empty');
+      }
+      // Test if URL is valid
+      new URL(testUrl);
+      history.replaceState({}, '', url);
+    } catch (urlError) {
+      console.error('URL creation error:', urlError);
+      console.error('Generated URL:', url.toString());
+      throw new Error('Failed to create valid URL: ' + urlError.message);
+    }
   }
 
   function decodeStateFromURL() {
@@ -900,11 +925,44 @@
         game.winner = '';
         
         // Encode game state to URL
-        encodeStateToURL(game);
-        
-        // Get the updated URL with encoded game state
-        const currentUrl = new URL(location.href);
-        const shareUrl = currentUrl.toString();
+        let shareUrl;
+        try {
+          encodeStateToURL(game);
+          
+          // Get the updated URL with encoded game state
+          const currentUrl = new URL(location.href);
+          shareUrl = currentUrl.toString();
+          
+          // Validate the share URL
+          if (!shareUrl || shareUrl.length === 0) {
+            throw new Error('Generated share URL is empty');
+          }
+          
+          console.log('Share URL generated successfully:', shareUrl);
+        } catch (urlError) {
+          console.error('URL encoding failed, using fallback:', urlError);
+          
+          // Fallback to individual parameters
+          const fallbackUrl = new URL(location.href);
+          const fallbackParams = fallbackUrl.searchParams;
+          fallbackParams.set('pa', game.playerAName || '');
+          fallbackParams.set('pb', game.playerBName || '');
+          fallbackParams.set('sa', String(game.playerAScore || 0));
+          fallbackParams.set('sb', String(game.playerBScore || 0));
+          fallbackParams.set('cp', game.currentPlayer || 'A');
+          fallbackParams.set('objs', JSON.stringify(game.targetObjects || []));
+          fallbackParams.set('lat', String(game.targetLocation?.latitude || ''));
+          fallbackParams.set('lng', String(game.targetLocation?.longitude || ''));
+          fallbackParams.set('act', game.isActive ? '1' : '0');
+          fallbackParams.set('w', game.winner || '');
+          fallbackParams.set('wp', String(game.winPoints || WIN_POINTS));
+          fallbackParams.set('cx', game.canceledBy || '');
+          fallbackParams.set('gid', game.gameId || '');
+          
+          history.replaceState({}, '', fallbackUrl);
+          shareUrl = fallbackUrl.toString();
+          console.log('Fallback URL generated:', shareUrl);
+        }
 
         // Create share message
         const objectNames = game.targetObjects.map(obj => obj.label).join(', ');
