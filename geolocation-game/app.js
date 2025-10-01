@@ -162,7 +162,22 @@
 
   // URL state management (same as hitta)
   function encodeStateToURL(next) {
-    const url = new URL(location.href);
+    let url;
+    try {
+      // Validate and construct URL with proper error handling
+      const currentHref = location.href;
+      if (!currentHref || currentHref === 'about:blank' || currentHref.startsWith('file://')) {
+        // Fallback for invalid or file URLs - use a dummy base URL
+        url = new URL('https://selenwall.github.io/geolocation-game/');
+      } else {
+        url = new URL(currentHref);
+      }
+    } catch (urlError) {
+      console.warn('Invalid URL detected, using fallback:', urlError);
+      // Fallback to a valid base URL
+      url = new URL('https://selenwall.github.io/geolocation-game/');
+    }
+    
     const params = url.searchParams;
     params.set('pa', next.playerAName || '');
     params.set('pb', next.playerBName || '');
@@ -181,7 +196,22 @@
   }
 
   function decodeStateFromURL() {
-    const url = new URL(location.href);
+    let url;
+    try {
+      // Validate and construct URL with proper error handling
+      const currentHref = location.href;
+      if (!currentHref || currentHref === 'about:blank' || currentHref.startsWith('file://')) {
+        // Fallback for invalid or file URLs - use a dummy base URL
+        url = new URL('https://selenwall.github.io/geolocation-game/');
+      } else {
+        url = new URL(currentHref);
+      }
+    } catch (urlError) {
+      console.warn('Invalid URL detected in decodeStateFromURL, using fallback:', urlError);
+      // Fallback to a valid base URL
+      url = new URL('https://selenwall.github.io/geolocation-game/');
+    }
+    
     const p = url.searchParams;
     const parsed = {
       playerAName: p.get('pa') || '',

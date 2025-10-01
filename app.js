@@ -162,7 +162,22 @@
 
   // URL state management with compact encoding (inspired by hitta but more efficient)
   function encodeStateToURL(next) {
-    const url = new URL(location.href);
+    let url;
+    try {
+      // Validate and construct URL with proper error handling
+      const currentHref = location.href;
+      if (!currentHref || currentHref === 'about:blank' || currentHref.startsWith('file://')) {
+        // Fallback for invalid or file URLs - use a dummy base URL
+        url = new URL('https://selenwall.github.io/geolocation-game/');
+      } else {
+        url = new URL(currentHref);
+      }
+    } catch (urlError) {
+      console.warn('Invalid URL detected, using fallback:', urlError);
+      // Fallback to a valid base URL
+      url = new URL('https://selenwall.github.io/geolocation-game/');
+    }
+    
     const params = url.searchParams;
     
     // Create compact game state object
@@ -231,7 +246,22 @@
   }
 
   function decodeStateFromURL() {
-    const url = new URL(location.href);
+    let url;
+    try {
+      // Validate and construct URL with proper error handling
+      const currentHref = location.href;
+      if (!currentHref || currentHref === 'about:blank' || currentHref.startsWith('file://')) {
+        // Fallback for invalid or file URLs - use a dummy base URL
+        url = new URL('https://selenwall.github.io/geolocation-game/');
+      } else {
+        url = new URL(currentHref);
+      }
+    } catch (urlError) {
+      console.warn('Invalid URL detected in decodeStateFromURL, using fallback:', urlError);
+      // Fallback to a valid base URL
+      url = new URL('https://selenwall.github.io/geolocation-game/');
+    }
+    
     const p = url.searchParams;
     
     // Try new compact format first
@@ -930,7 +960,13 @@
           encodeStateToURL(game);
           
           // Get the updated URL with encoded game state
-          const currentUrl = new URL(location.href);
+          let currentUrl;
+          try {
+            currentUrl = new URL(location.href);
+          } catch (urlError) {
+            console.warn('Invalid URL in photo capture, using fallback:', urlError);
+            currentUrl = new URL('https://selenwall.github.io/geolocation-game/');
+          }
           shareUrl = currentUrl.toString();
           
           // Validate the share URL
@@ -943,7 +979,13 @@
           console.error('URL encoding failed, using fallback:', urlError);
           
           // Fallback to individual parameters
-          const fallbackUrl = new URL(location.href);
+          let fallbackUrl;
+          try {
+            fallbackUrl = new URL(location.href);
+          } catch (urlError) {
+            console.warn('Invalid URL in fallback, using base URL:', urlError);
+            fallbackUrl = new URL('https://selenwall.github.io/geolocation-game/');
+          }
           const fallbackParams = fallbackUrl.searchParams;
           fallbackParams.set('pa', game.playerAName || '');
           fallbackParams.set('pb', game.playerBName || '');
